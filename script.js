@@ -212,7 +212,7 @@ if (serviceForm) {
         try {
 
             const response = await fetch(
-                "http://teyie-services.onrender.com/api/service-requests",
+                "https://teyie-services.onrender.com/api/service-requests",
                 {
                     method: "POST",
                     headers: {
