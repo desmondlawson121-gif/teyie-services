@@ -1,6 +1,7 @@
 const express = require("express");
 const path = require("path");
 const jwt = require ("jsonwebtoken")
+const JWT_SECRET = process.env.JWT_SECRET;
 const cors = require("cors");
 const db = require("./database");
 
