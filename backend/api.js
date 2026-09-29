@@ -1,5 +1,6 @@
-const path = require("path");
 const express = require("express");
+const path = require("path");
+const jwt = require ("jsonwebtoken")
 const cors = require("cors");
 const db = require("./database");
 
@@ -121,7 +122,7 @@ app.post("/api/service-requests", async (req, res) => {
 
 
 // GET ALL SERVICE REQUESTS
-app.get("/api/service-requests", async (req, res) => {
+app.get("/api/service-requests", authenticateToken, async (req, res) => {
 
     try {
 
@@ -151,7 +152,7 @@ app.get("/api/service-requests", async (req, res) => {
 
 
 // UPDATE SERVICE REQUEST STATUS
-app.patch("/api/service-requests/:id/status", async (req, res) => {
+app.patch("/api/service-requests/:id/status", authenticateToken, async (req, res) => {
 
     const { id } = req.params;
     const { status } = req.body;
@@ -218,7 +219,7 @@ app.patch("/api/service-requests/:id/status", async (req, res) => {
 
 
 // DELETE SERVICE REQUEST
-app.delete("/api/service-requests/:id", async (req, res) => {
+app.delete("/api/service-requests/:id", authenticateToken, async (req, res) => {
 
     const { id } = req.params;
 
@@ -281,14 +282,23 @@ app.post("/api/admin/login", (req, res) => {
 
     const ADMIN_USERNAME = process.env.ADMIN_USERNAME;
     const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+    const JWT_SECRET = process.env.JWT_SECRET;
 
     if (
         username === ADMIN_USERNAME &&
         password === ADMIN_PASSWORD
     ) {
+
+        const token = jwt.sign(
+            {username},
+            JWT_SECRET,
+            {expiresIn: "2h"}
+        );
+
         return res.json({
             success: true,
-            message: "Login successful."
+            message: "Login successful.",
+            token: token
         });
     }
 
@@ -298,6 +308,31 @@ app.post("/api/admin/login", (req, res) => {
     });
 
 });
+
+function authenticateToken(req, res, next) {
+    const authHeader = req.headers["authorization"];
+    const token = authHeader && authHeader.split(" ")[1];
+
+    if (!token) {
+        return res.status(401).json({
+            success: false,
+            message: "Access token required."
+        });
+    }
+
+    jwt.verify(token, JWT_SECRET, (err, user) => {
+        if (err) {
+            return res.status(403).json({
+                success: false,
+                message: "Invalid or expired token."
+            });
+        }
+
+        req.user = user;
+        next();
+    });
+}
+
 
 
 // START SERVER
