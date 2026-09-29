@@ -338,7 +338,7 @@
 
                 const response =
                     await fetch(
-                        "http://teyie-services.onrender.com/api/service-requests"
+                        "https://teyie-services.onrender.com/api/service-requests"
                     );
 
                 const data =
@@ -463,7 +463,7 @@ document.getElementById("completedRequests").textContent =
     try {
 
         const response = await fetch(
-            `http://localhost:5000/api/service-requests/${id}/status`,
+            `http://teyie-services.onrender.com/api/service-requests/${id}/status`,
             {
                 method: "PATCH",
                 headers: {
@@ -513,7 +513,7 @@ async function deleteRequest(id) {
     try {
 
         const response = await fetch(
-            `http://localhost:5000/api/service-requests/${id}`,
+            `https://teyie-services.onrender.com/api/service-requests/${id}`,
             {
                 method: "DELETE"
             }
