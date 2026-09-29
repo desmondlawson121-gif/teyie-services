@@ -11,15 +11,21 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, "..")));
 
 app.use((req, res, next) => {
-    res.header("Access-Control-Allow-Origin","*");
-    res.header("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS");
-    res.header("Access-Control-Allow-Headers", "Content-Type");
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header(
+        "Access-Control-Allow-Methods",
+        "GET, POST, PATCH, DELETE, OPTIONS"
+    );
+    res.header(
+        "Access-Control-Allow-Headers",
+        "Content-Type"
+    );
 
-        if (req.method === "OPTIONS") {
-            return res.sendStatus(204);
-        }
+    if (req.method === "OPTIONS") {
+        return res.sendStatus(204);
+    }
 
-        next();
+    next();
 });
 
 
@@ -27,13 +33,13 @@ app.use((req, res, next) => {
 app.get("/", (req, res) => {
     res.json({
         success: true,
-        message: "Teyei Services API is working!"
+        message: "Teyie Services API is working!"
     });
 });
 
 
 // CREATE SERVICE REQUEST
-app.post("/api/service-requests", (req, res) => {
+app.post("/api/service-requests", async (req, res) => {
 
     const {
         name,
@@ -51,38 +57,79 @@ app.post("/api/service-requests", (req, res) => {
         });
     }
 
-    const result = db.prepare(`
-        INSERT INTO service_requests
-        (name, phone, service, location, date, message)
-        VALUES (?, ?, ?, ?, ?, ?)
-    `).run(
-        name,
-        phone,
-        service,
-        location || null,
-        date || null,
-        message || null
-    );
+    try {
 
-    res.status(201).json({
-        success: true,
-        message: "Service request received!",
-        id: result.lastInsertRowid
-    });
+        let sql;
+        let params;
+
+        if (db.dbType === "postgres") {
+
+            sql = `
+                INSERT INTO service_requests
+                (name, phone, service, location, date, message)
+                VALUES ($1, $2, $3, $4, $5, $6)
+                RETURNING id
+            `;
+
+            params = [
+                name,
+                phone,
+                service,
+                location || null,
+                date || null,
+                message || null
+            ];
+
+        } else {
+
+            sql = `
+                INSERT INTO service_requests
+                (name, phone, service, location, date, message)
+                VALUES (?, ?, ?, ?, ?, ?)
+            `;
+
+            params = [
+                name,
+                phone,
+                service,
+                location || null,
+                date || null,
+                message || null
+            ];
+        }
+
+        const result = await db.run(sql, params);
+
+        res.status(201).json({
+            success: true,
+            message: "Service request received!",
+            id: result.lastInsertRowid
+        });
+
+    } catch (error) {
+
+        console.error(error);
+
+        res.status(500).json({
+            success: false,
+            message: "Could not save service request."
+        });
+
+    }
 
 });
 
 
 // GET ALL SERVICE REQUESTS
-app.get("/api/service-requests", (req, res) => {
+app.get("/api/service-requests", async (req, res) => {
 
     try {
 
-        const requests = db.prepare(`
+        const requests = await db.all(`
             SELECT *
             FROM service_requests
             ORDER BY id DESC
-        `).all();
+        `);
 
         res.json({
             success: true,
@@ -102,8 +149,9 @@ app.get("/api/service-requests", (req, res) => {
 
 });
 
+
 // UPDATE SERVICE REQUEST STATUS
-app.patch("/api/service-requests/:id/status", (req, res) => {
+app.patch("/api/service-requests/:id/status", async (req, res) => {
 
     const { id } = req.params;
     const { status } = req.body;
@@ -117,11 +165,31 @@ app.patch("/api/service-requests/:id/status", (req, res) => {
 
     try {
 
-        const result = db.prepare(`
-            UPDATE service_requests
-            SET status = ?
-            WHERE id = ?
-        `).run(status, id);
+        let sql;
+        let params;
+
+        if (db.dbType === "postgres") {
+
+            sql = `
+                UPDATE service_requests
+                SET status = $1
+                WHERE id = $2
+            `;
+
+            params = [status, id];
+
+        } else {
+
+            sql = `
+                UPDATE service_requests
+                SET status = ?
+                WHERE id = ?
+            `;
+
+            params = [status, id];
+        }
+
+        const result = await db.run(sql, params);
 
         if (result.changes === 0) {
             return res.status(404).json({
@@ -148,17 +216,37 @@ app.patch("/api/service-requests/:id/status", (req, res) => {
 
 });
 
+
 // DELETE SERVICE REQUEST
-app.delete("/api/service-requests/:id", (req, res) => {
+app.delete("/api/service-requests/:id", async (req, res) => {
 
     const { id } = req.params;
 
     try {
 
-        const result = db.prepare(`
-            DELETE FROM service_requests
-            WHERE id = ?
-        `).run(id);
+        let sql;
+        let params;
+
+        if (db.dbType === "postgres") {
+
+            sql = `
+                DELETE FROM service_requests
+                WHERE id = $1
+            `;
+
+            params = [id];
+
+        } else {
+
+            sql = `
+                DELETE FROM service_requests
+                WHERE id = ?
+            `;
+
+            params = [id];
+        }
+
+        const result = await db.run(sql, params);
 
         if (result.changes === 0) {
             return res.status(404).json({
@@ -185,6 +273,7 @@ app.delete("/api/service-requests/:id", (req, res) => {
 
 });
 
+
 // ADMIN LOGIN
 app.post("/api/admin/login", (req, res) => {
 
@@ -210,25 +299,12 @@ app.post("/api/admin/login", (req, res) => {
 
 });
 
-app.get("/api/service-requests", (req, res) => {
-    const requests = db.prepare(`
-        SELECT *
-        FROM service_requests
-        ORDER BY id DESC
-    `).all();
-
-    res.json({
-        success: true,
-        requests: requests
-    });
-});
-
 
 // START SERVER
 app.listen(PORT, "0.0.0.0", () => {
 
     console.log(
-        `Teyei Services API running on http://localhost:${PORT}`
+        `Teyie Services API running on http://localhost:${PORT}`
     );
 
 });
