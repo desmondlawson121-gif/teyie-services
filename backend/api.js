@@ -143,7 +143,7 @@ app.get("/api/service-requests", authenticateToken, async (req, res) => {
 
         res.status(500).json({
             success: false,
-            message: "Could not retrieve service requests."
+            message: error.message
         });
 
     }
